@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Management System</title>
+</head>
+<body>
+
+    <h2>Student Registration</h2>
+
+    <form id="registerForm">
+        <input type="text" id="name" placeholder="Name" required><br><br>
+        <input type="email" id="email" placeholder="Email" required><br><br>
+        <input type="password" id="password" placeholder="Password" required><br><br>
+
+        <select id="role">
+            <option value="student">Student</option>
+            <option value="professor">Professor</option>
+        </select><br><br>
+
+        <button type="submit">Register</button>
+    </form>
+    <p id="registerMessage"></p>
+
+    <hr>
+
+    <h2>Student Login</h2>
+
+    <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email" required><br><br>
+        <input type="password" id="loginPassword" placeholder="Password" required><br><br>
+        <button type="submit">Login</button>
+    </form>
+    <p id="loginMessage"></p>
+
+    <hr>
+
+    <h2>Create Student Group</h2>
+
+    <form id="groupForm">
+        <input type="text" id="groupName" placeholder="Enter Group Name" required>
+        <br><br>
+        <button type="submit">Create Group</button>
+    </form>
+    <p id="groupMessage"></p>
+
+    <hr>
+
+    <h2>My Groups</h2>
+    <button id="viewGroups">View My Groups</button>
+    <ul id="groupList"></ul>
+
+    <script>
+        // Registration
+        document.getElementById("registerForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            try {
+                const response = await fetch("/api/auth/register", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        name: document.getElementById("name").value,
+                        email: document.getElementById("email").value,
+                        password: document.getElementById("password").value,
+                        role: document.getElementById("role").value
+                    })
+                });
+
+                const result = await response.json();
+                document.getElementById("registerMessage").textContent = result.message;
+            } catch (error) {
+                document.getElementById("registerMessage").textContent = "Connection error";
+            }
+        });
+
+        // Login
+        document.getElementById("loginForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            try {
+                const response = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        email: document.getElementById("loginEmail").value,
+                        password: document.getElementById("loginPassword").value
+                    })
+                });
+
+                const result = await response.json();
+                document.getElementById("loginMessage").textContent = result.message;
+
+                if (result.token) {
+                    localStorage.setItem("token", result.token);
+                }
+            } catch (error) {
+                document.getElementById("loginMessage").textContent = "Connection error";
+            }
+        });
+
+        // Create Group
+        document.getElementById("groupForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const token = localStorage.getItem("token");
+
+            try {
+                const response = await fetch("/api/groups", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({
+                        group_name: document.getElementById("groupName").value
+                    })
+                });
+
+                const result = await response.json();
+                document.getElementById("groupMessage").textContent = result.message;
+
+                if (response.ok) {
+                    loadGroups();
+                }
+            } catch (error) {
+                document.getElementById("groupMessage").textContent = "Connection error";
+            }
+        });
+
+        // View Groups
+        async function loadGroups() {
+            const token = localStorage.getItem("token");
+            const list = document.getElementById("groupList");
+
+            try {
+                const response = await fetch("/api/groups", {
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    }
+                });
+
+                const groups = await response.json();
+                list.innerHTML = "";
+
+                if (!response.ok) {
+                    list.textContent = groups.message || "Unable to load groups";
+                    return;
+                }
+
+                groups.forEach(group => {
+                    const item = document.createElement("li");
+                    item.textContent = group.group_name;
+                    list.appendChild(item);
+                });
+
+            } catch (error) {
+                list.textContent = "Connection error";
+            }
+        }
+
+        document.getElementById("viewGroups").addEventListener("click", loadGroups);
+    </script>
+
+</body>
+</html>
+
