@@ -85,18 +85,29 @@ router.post("/", verifyToken, async (req, res) => {
     }
 });
 
-// View groups
+
+ // View groups
 router.get("/", verifyToken, async (req, res) => {
     try {
-        const result = await db.query(
-            `SELECT g.*
-             FROM groups g
-             JOIN group_members gm
-             ON g.id = gm.group_id
-             WHERE gm.student_id = $1
-             ORDER BY g.id`,
-            [req.user.id]
-        );
+        let result;
+
+        if (req.user.role === "professor") {
+            // Professors can view all available groups
+            result = await db.query(
+                `SELECT * FROM groups ORDER BY id`
+            );
+        } else {
+            // Students can view only their own groups
+            result = await db.query(
+                `SELECT g.*
+                 FROM groups g
+                 JOIN group_members gm
+                 ON g.id = gm.group_id
+                 WHERE gm.student_id = $1
+                 ORDER BY g.id`,
+                [req.user.id]
+            );
+        }
 
         res.json(result.rows);
 
@@ -108,70 +119,4 @@ router.get("/", verifyToken, async (req, res) => {
         });
     }
 });
-
-// Add a student to a group
-router.post("/:groupId/members", verifyToken, async (req, res) => {
-    try {
-        const { email } = req.body;
-        const groupId = req.params.groupId;
-
-        if (!email || !email.trim()) {
-            return res.status(400).json({
-                message: "Student email is required"
-            });
-        }
-
-        // Check group ownership
-        const group = await db.query(
-            `SELECT * FROM groups
-             WHERE id = $1 AND created_by = $2`,
-            [groupId, req.user.id]
-        );
-
-        if (group.rows.length === 0) {
-            return res.status(404).json({
-                message: "Group not found or you are not the creator"
-            });
-        }
-
-        // Find student
-        const student = await db.query(
-            `SELECT id FROM users
-             WHERE LOWER(email) = LOWER($1)
-             AND role = 'student'`,
-            [email.trim()]
-        );
-
-        if (student.rows.length === 0) {
-            return res.status(404).json({
-                message: "Student not found"
-            });
-        }
-
-        // Add student to group
-        await db.query(
-            `INSERT INTO group_members (group_id, student_id)
-             VALUES ($1, $2)`,
-            [groupId, student.rows[0].id]
-        );
-
-        res.status(201).json({
-            message: "Student added to group successfully"
-        });
-
-    } catch (error) {
-        if (error.code === "23505") {
-            return res.status(409).json({
-                message: "Student is already in this group"
-            });
-        }
-
-        console.error("Add member error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
-    }
-});
-
 module.exports = router;

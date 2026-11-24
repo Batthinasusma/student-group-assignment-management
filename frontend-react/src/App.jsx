@@ -7,7 +7,7 @@ import {
   LogOut, X, ExternalLink
 } from "lucide-react";
 
-const API = "http://localhost:5000/api";
+const API = "https://student-management-backend-gogo.onrender.com/api";
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
